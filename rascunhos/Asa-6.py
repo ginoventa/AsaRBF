@@ -6,7 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import pdist
 
 # === 1. Leitura dos dados ===
-df = pd.read_excel('dados-asa.xls')
+df = pd.read_excel('dados/dados-asa.xls')
 
 x1 = df['x'].values  # eixo longitudinal
 x2 = df['y'].values  # eixo lateral
@@ -55,11 +55,10 @@ grid_scaled = scaler.transform(grid_points)
 Zg = np.array([P(pt, centros_scaled, a, alpha) for pt in grid_scaled])
 Zg = Zg.reshape(X1g.shape)
 
-# === 10. Visualizações ===
-fig = plt.figure(figsize=(15, 5))
-
+# === 10. Visualizações em abas separadas ===
 # Vista 1 - Padrão
-ax1 = fig.add_subplot(131, projection='3d')
+fig1 = plt.figure(figsize=(7, 5))
+ax1 = fig1.add_subplot(111, projection='3d')
 surf1 = ax1.plot_surface(X1g, X2g, Zg, cmap='viridis', rstride=1, cstride=1, antialiased=True)
 ax1.scatter(x1, x2, z, color='r', s=5, label='Dados reais')
 ax1.set_title('Vista 1 - Padrão')
@@ -67,24 +66,29 @@ ax1.set_xlabel('x₁ (longitudinal)')
 ax1.set_ylabel('x₂ (lateral)')
 ax1.set_zlabel('z (altura)')
 ax1.legend()
+plt.tight_layout()
+plt.show()
 
 # Vista 2 - Lateral
-ax2 = fig.add_subplot(132, projection='3d')
+fig2 = plt.figure(figsize=(7, 5))
+ax2 = fig2.add_subplot(111, projection='3d')
 surf2 = ax2.plot_surface(X1g, X2g, Zg, cmap='plasma', rstride=1, cstride=1, antialiased=True)
 ax2.view_init(azim=90, elev=20)
 ax2.set_title('Vista 2 - Lateral')
 ax2.set_xlabel('x₁ (longitudinal)')
 ax2.set_ylabel('x₂ (lateral)')
 ax2.set_zlabel('z (altura)')
+plt.tight_layout()
+plt.show()
 
 # Vista 3 - Topo
-ax3 = fig.add_subplot(133, projection='3d')
+fig3 = plt.figure(figsize=(7, 5))
+ax3 = fig3.add_subplot(111, projection='3d')
 surf3 = ax3.plot_surface(X1g, X2g, Zg, cmap='coolwarm', rstride=1, cstride=1, antialiased=True)
 ax3.view_init(azim=90, elev=90)
 ax3.set_title('Vista 3 - Topo')
 ax3.set_xlabel('x₁ (longitudinal)')
 ax3.set_ylabel('x₂ (lateral)')
 ax3.set_zlabel('z (altura)')
-
 plt.tight_layout()
 plt.show()
