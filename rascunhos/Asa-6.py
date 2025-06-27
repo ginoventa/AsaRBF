@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import pdist
 import os
+from sklearn.cluster import KMeans
 
 # === 1. Leitura dos dados ===
 def carregar_dados():
@@ -100,10 +101,15 @@ def plotar_superficies(X1g, X2g, Zg, x1, x2, z):
 def main():
     x1, x2, z = carregar_dados()
     X, X_scaled, scaler = normalizar_dados(x1, x2)
-    centros_scaled = X_scaled
+    # Opção A: usar subconjunto de centros via KMeans
+    k = 150  # número de centros
+    kmeans = KMeans(n_clusters=k, random_state=42).fit(X_scaled)
+    centros_scaled = kmeans.cluster_centers_
     alpha = calcular_alpha(centros_scaled)
     Phi = construir_Phi(X_scaled, centros_scaled, alpha)
-    a = resolver_coeficientes(Phi, z)
+    # Regularização opcional (Opção C)
+    lamb = 1e-6
+    a = np.linalg.solve(Phi.T @ Phi + lamb * np.eye(Phi.shape[1]), Phi.T @ z)
     X1g, X2g, grid_scaled = gerar_grid(x1, x2, scaler)
     Zg = np.array([P(pt, centros_scaled, a, alpha) for pt in grid_scaled])
     Zg = Zg.reshape(X1g.shape)
