@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import pdist
+import os
+from sklearn.cluster import KMeans
 
 # === 1. Leitura dos dados ===
 df = pd.read_excel('dados/dados-asa.xls')
@@ -52,8 +54,23 @@ X1g, X2g = np.meshgrid(x1_grid, x2_grid)
 grid_points = np.vstack((X1g.ravel(), X2g.ravel())).T
 grid_scaled = scaler.transform(grid_points)
 
-Zg = np.array([P(pt, centros_scaled, a, alpha) for pt in grid_scaled])
-Zg = Zg.reshape(X1g.shape)
+# === Função principal ===
+def main():
+    x1, x2, z = carregar_dados()
+    X, X_scaled, scaler = normalizar_dados(x1, x2)
+    # Opção A: usar subconjunto de centros via KMeans
+    k = 150  # número de centros
+    kmeans = KMeans(n_clusters=k, random_state=42).fit(X_scaled)
+    centros_scaled = kmeans.cluster_centers_
+    alpha = calcular_alpha(centros_scaled)
+    Phi = construir_Phi(X_scaled, centros_scaled, alpha)
+    # Regularização opcional (Opção C)
+    lamb = 1e-6
+    a = np.linalg.solve(Phi.T @ Phi + lamb * np.eye(Phi.shape[1]), Phi.T @ z)
+    X1g, X2g, grid_scaled = gerar_grid(x1, x2, scaler)
+    Zg = np.array([P(pt, centros_scaled, a, alpha) for pt in grid_scaled])
+    Zg = Zg.reshape(X1g.shape)
+    plotar_superficies(X1g, X2g, Zg, x1, x2, z)
 
 # === 10. Visualizações em abas separadas ===
 # Vista 1 - Padrão
