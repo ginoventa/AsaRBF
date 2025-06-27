@@ -22,6 +22,8 @@ n_centros = X.shape[0]
 
 # 4. Função RBF Gaussiana
 def rbf_gauss(x, c, alpha):
+    # x: (N, 2), c: (2,), retorna (N,)
+    # Corrigido para garantir broadcasting correto
     return np.exp(-alpha * np.sum((x - c)**2, axis=1))
 
 alpha = 0.05  # ajuste conforme necessário
@@ -48,10 +50,17 @@ for j in range(n_centros):
     Z += a[j] * rbf_gauss(grid_pts, centros[j], alpha)
 Zg = Z.reshape(X1g.shape) * zs + zm  # desnormaliza z
 
+# --- NOVO: calcular o contorno modelado da asa ---
+# Para cada ponto do contorno (x1, x2), calcular z_modelado usando a RBF
+X_contorno_n = np.column_stack(((x1 - x1m) / x1s, (x2 - x2m) / x2s))
+z_contorno_modelado = np.zeros_like(x1)
+for j in range(n_centros):
+    z_contorno_modelado += a[j] * rbf_gauss(X_contorno_n, centros[j], alpha)
+z_contorno_modelado = z_contorno_modelado * zs + zm  # desnormaliza
+
 # Visualização única, grande, com superfície e pontos reais
 fig = plt.figure(figsize=(14, 7))
 ax = fig.add_subplot(131, projection='3d')
-ax.plot_surface(X1g, X2g, Zg, cmap='viridis', linewidth=0, antialiased=True, alpha=0.9)
 ax.scatter(x1, x2, z, color='blue', s=20)
 ax.set_xlabel('x₁')
 ax.set_ylabel('x₂')
@@ -70,35 +79,9 @@ ax.set_xlim(mid_x - max_range, mid_x + max_range)
 ax.set_ylim(mid_y - max_range, mid_y + max_range)
 ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
-# Adiciona contorno da asa para visualização clara (projeção no plano x1-x2)
-ax.plot(x1, x2, np.full_like(x1, np.min(z)-0.05*z_range), color='black', linewidth=2, label='Contorno da Asa')
+# Substitui o contorno da asa pelo contorno modelado 3D
+ax.plot(x1, x2, z_contorno_modelado, color='red', linewidth=2, label='Contorno Modelado 3D')
 ax.legend()
-
-ax2 = fig.add_subplot(132, projection='3d')
-ax2.plot_surface(X1g, X2g, Zg, cmap='viridis', linewidth=0, antialiased=True, alpha=0.9)
-ax2.scatter(x1, x2, z, color='blue', s=20)
-ax2.set_xlabel('x₁')
-ax2.set_ylabel('x₂')
-ax2.set_zlabel('z')
-ax2.set_title('Vista 2')
-ax2.view_init(elev=45, azim=60)
-ax2.set_xlim(mid_x - max_range, mid_x + max_range)
-ax2.set_ylim(mid_y - max_range, mid_y + max_range)
-ax2.set_zlim(mid_z - max_range, mid_z + max_range)
-ax2.plot(x1, x2, np.full_like(x1, np.min(z)-0.05*z_range), color='black', linewidth=2)
-
-ax3 = fig.add_subplot(133, projection='3d')
-ax3.plot_surface(X1g, X2g, Zg, cmap='viridis', linewidth=0, antialiased=True, alpha=0.9)
-ax3.scatter(x1, x2, z, color='blue', s=20)
-ax3.set_xlabel('x₁')
-ax3.set_ylabel('x₂')
-ax3.set_zlabel('z')
-ax3.set_title('Vista 3')
-ax3.view_init(elev=10, azim=210)
-ax3.set_xlim(mid_x - max_range, mid_x + max_range)
-ax3.set_ylim(mid_y - max_range, mid_y + max_range)
-ax3.set_zlim(mid_z - max_range, mid_z + max_range)
-ax3.plot(x1, x2, np.full_like(x1, np.min(z)-0.05*z_range), color='black', linewidth=2)
 
 plt.tight_layout()
 plt.show()
