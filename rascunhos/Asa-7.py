@@ -79,9 +79,6 @@ ax.set_xlim(mid_x - max_range, mid_x + max_range)
 ax.set_ylim(mid_y - max_range, mid_y + max_range)
 ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
-# Substitui o contorno da asa pelo contorno modelado 3D
-ax.plot(x1, x2, z_contorno_modelado, color='red', linewidth=2, label='Contorno Modelado 3D')
-ax.legend()
 
 plt.tight_layout()
 plt.show()
