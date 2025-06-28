@@ -1,85 +1,72 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import MinMaxScaler
 
 # 1. Carregar dados
-# Usa MinMaxScaler para normalização padrão
-
-# Leitura dos dados
-# (ajusta para aceitar tanto .xls quanto .xlsx)
-import os
-if os.path.exists("dados/dados-asa.xls"):
-    df = pd.read_excel("dados/dados-asa.xls", engine="xlrd")
-elif os.path.exists("dados/dados-asa.xlsx"):
-    df = pd.read_excel("dados/dados-asa.xlsx")
-else:
-    raise FileNotFoundError("Arquivo de dados não encontrado.")
+df = pd.read_excel("dados/dados-asa.xls", engine="xlrd")
 x1 = df.iloc[:, 0].values  # eixo x
 x2 = df.iloc[:, 1].values  # eixo y
 z  = df.iloc[:, 2].values  # eixo z (altura)
 
-# 2. Normalização MinMax
-scaler = MinMaxScaler()
-X = np.column_stack((x1, x2))
-X_scaled = scaler.fit_transform(X)
-z_scaled = (z - np.mean(z)) / np.std(z)
+# 2. Normalização
+def normaliza(v):
+    return (v - np.mean(v)) / np.std(v), np.mean(v), np.std(v)
+x1n, x1m, x1s = normaliza(x1)
+x2n, x2m, x2s = normaliza(x2)
+zn, zm, zs = normaliza(z)
+X = np.column_stack((x1n, x2n))
 
-# 3. Seleção dos centros via KMeans
-k = 150  # número de centros
-kmeans = KMeans(n_clusters=k, random_state=42).fit(X_scaled)
-centros_scaled = kmeans.cluster_centers_
+# 3. Seleção dos centros (exemplo: todos os pontos)
+centros = X.copy()
+n_centros = X.shape[0]
 
 # 4. Função RBF Gaussiana
-# (mantém broadcasting correto)
 def rbf_gauss(x, c, alpha):
+    # x: (N, 2), c: (2,), retorna (N,)
+    # Corrigido para garantir broadcasting correto
     return np.exp(-alpha * np.sum((x - c)**2, axis=1))
 
-# 5. Cálculo de alpha dinâmico
-from scipy.spatial.distance import pdist
-mean_dist = np.mean(pdist(centros_scaled))
-alpha = 1 / (2 * mean_dist**2)
+alpha = 0.05  # ajuste conforme necessário
 
-# 6. Construção da matriz Phi
-Phi = np.zeros((X_scaled.shape[0], centros_scaled.shape[0]))
-for j in range(centros_scaled.shape[0]):
-    Phi[:, j] = rbf_gauss(X_scaled, centros_scaled[j], alpha)
+# 5. Construção da matriz Phi
+Phi = np.zeros((X.shape[0], n_centros))
+for j in range(n_centros):
+    Phi[:, j] = rbf_gauss(X, centros[j], alpha)
 
-# 7. Resolução dos coeficientes com regularização ridge
-lamb = 1e-6
-A = Phi.T @ Phi + lamb * np.eye(Phi.shape[1])
-b = Phi.T @ z_scaled
-coef = np.linalg.solve(A, b)
+# 6. Resolução dos coeficientes
+a, *_ = np.linalg.lstsq(Phi, zn, rcond=None)
 
-# 8. Geração de grid para visualização
+# 7. Geração de grid fino para visualização
 x1_vals = np.linspace(np.min(x1), np.max(x1), 100)
 x2_vals = np.linspace(np.min(x2), np.max(x2), 100)
 X1g, X2g = np.meshgrid(x1_vals, x2_vals)
-grid_pts = np.column_stack((X1g.ravel(), X2g.ravel()))
-grid_scaled = scaler.transform(grid_pts)
+X1g_n = (X1g - x1m) / x1s
+X2g_n = (X2g - x2m) / x2s
+grid_pts = np.column_stack((X1g_n.ravel(), X2g_n.ravel()))
 
-# 9. Avaliação do modelo na malha
-def P(x, centros, a, alpha):
-    phi = np.exp(-alpha * np.linalg.norm(x - centros, axis=1)**2)
-    return np.dot(a, phi)
+# 8. Avaliação do modelo na malha
+Z = np.zeros(grid_pts.shape[0])
+for j in range(n_centros):
+    Z += a[j] * rbf_gauss(grid_pts, centros[j], alpha)
+Zg = Z.reshape(X1g.shape) * zs + zm  # desnormaliza z
 
-Zg = np.array([P(pt, centros_scaled, coef, alpha) for pt in grid_scaled])
-Zg = Zg.reshape(X1g.shape)
-# Desnormaliza z para visualização
-Zg = Zg * np.std(z) + np.mean(z)
+# --- NOVO: calcular o contorno modelado da asa ---
+# Para cada ponto do contorno (x1, x2), calcular z_modelado usando a RBF
+X_contorno_n = np.column_stack(((x1 - x1m) / x1s, (x2 - x2m) / x2s))
+z_contorno_modelado = np.zeros_like(x1)
+for j in range(n_centros):
+    z_contorno_modelado += a[j] * rbf_gauss(X_contorno_n, centros[j], alpha)
+z_contorno_modelado = z_contorno_modelado * zs + zm  # desnormaliza
 
-# 10. Visualização: superfície + pontos reais
-fig = plt.figure(figsize=(10, 7))
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(X1g, X2g, Zg, cmap='viridis', alpha=0.8, antialiased=True)
-ax.scatter(x1, x2, z, color='blue', s=10, label='Dados reais')
-ax.set_xlabel('x₁ (longitudinal)')
-ax.set_ylabel('x₂ (lateral)')
-ax.set_zlabel('z (altura)')
-ax.set_title('Superfície modelada + pontos reais')
-ax.legend()
-
+# Visualização única, grande, com superfície e pontos reais
+fig = plt.figure(figsize=(14, 7))
+ax = fig.add_subplot(131, projection='3d')
+ax.scatter(x1, x2, z, color='blue', s=20)
+ax.set_xlabel('x₁')
+ax.set_ylabel('x₂')
+ax.set_zlabel('z')
+ax.set_title('Vista 1')
+ax.view_init(elev=22, azim=130)
 # Ajuste de proporção dos eixos
 x_range = np.ptp(x1)
 y_range = np.ptp(x2)
